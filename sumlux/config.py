@@ -38,7 +38,8 @@ class Config:
     endpoint: str = "http://127.0.0.1:11434/v1/chat/completions";
     model: str = "llama3.2";
     voice_enabled: bool = False;
-    voice_language: str = "es";
+    voice_language: str = "es-uy";
+    voice_engine: str = "phonem";
     roaming: bool = False;
     scale: float = 1.0;
 
@@ -54,7 +55,7 @@ def load(path=None):
 def save(config, path=None):
     location = Path(path) if path is not None else config_path();
     location.parent.mkdir(parents=True, exist_ok=True, mode=0o700);
-    payload = "\n".join((f"model_enabled = {str(config.model_enabled).lower()}", f'endpoint = "{_escape(config.endpoint)}"', f'model = "{_escape(config.model)}"', f"voice_enabled = {str(config.voice_enabled).lower()}", f'voice_language = "{_escape(config.voice_language)}"', f"roaming = {str(config.roaming).lower()}", f"scale = {float(config.scale):.2f}", ""));
+    payload = "\n".join((f"model_enabled = {str(config.model_enabled).lower()}", f'endpoint = "{_escape(config.endpoint)}"', f'model = "{_escape(config.model)}"', f"voice_enabled = {str(config.voice_enabled).lower()}", f'voice_language = "{_escape(config.voice_language)}"', f'voice_engine = "{_escape(config.voice_engine)}"', f"roaming = {str(config.roaming).lower()}", f"scale = {float(config.scale):.2f}", ""));
     temp = location.with_suffix(".tmp");
     descriptor = os.open(temp, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600);
     with os.fdopen(descriptor, "w", encoding="utf-8") as stream:

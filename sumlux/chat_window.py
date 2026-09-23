@@ -126,8 +126,8 @@ class ChatWindow(QDialog):
             self.add_line("Lumen", answer);
             self.status.setText(f"Modelo: {self.config.model}");
             self.avatar._animate("wave");
-            if self.config.voice_enabled and not speak(answer, self.config.voice_language):
-                self.status.setText("No encontré espeak-ng, espeak ni spd-say para la voz.");
+            if self.config.voice_enabled and not speak(answer, self.config.voice_language, self.config.voice_engine):
+                self.status.setText("Motor de voz no disponible: revisá phonem, pronounce y ffplay, o cambiá motor en Preferencias.");
         self.line.setEnabled(True);
         self.send_button.setEnabled(True);
         self.line.setFocus();

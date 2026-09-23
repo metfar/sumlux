@@ -26,6 +26,8 @@
 """Pruebas sin sesión gráfica ni servidor de modelo."""
 
 import io;
+import hashlib;
+import struct;
 import json;
 from pathlib import Path;
 import tempfile;
@@ -34,18 +36,31 @@ from unittest.mock import patch;
 import zipfile;
 from sumlux.backend import chat;
 from sumlux.config import Config, load, save;
-from sumlux.sprites import STATES, atlas_path, frame, validate_pet_zip;
+from sumlux.sprites import STATES, atlas_path, frame, pet_metadata, validate_pet_zip;
 from sumlux.storage import ConversationStore;
+from sumlux.voice import play, speak, voice_ready;
 
 
 class AssetTests(unittest.TestCase):
     def test_metadata_and_states(self):
-        zip_path = Path(__file__).parents[1] / "sumlux" / "assets" / "Lumen-Pet-delicate-OpenPets.zip";
+        zip_path = Path(__file__).parents[1] / "sumlux" / "assets" / "Lumen-OpenPets.zip";
         data = validate_pet_zip(zip_path);
-        self.assertEqual(data["id"], "lumen-pet-delicate");
+        self.assertEqual(data["id"], "lumen");
         self.assertEqual(len(STATES), 9);
         self.assertEqual((frame("think", 5).x, frame("think", 5).y), (960, 1664));
         self.assertTrue(atlas_path().is_file());
+
+    def test_green_avatar_is_selected(self):
+        self.assertEqual(pet_metadata()["id"], "lumen");
+        image = atlas_path();
+        self.assertEqual(image.name, "spritesheet.png");
+        self.assertEqual(image.read_bytes()[0:8], b"\x89PNG\r\n\x1a\n");
+        self.assertEqual(struct.unpack(">II", image.read_bytes()[16:24]), (1536, 1872));
+        zip_path = image.parent / "Lumen-OpenPets.zip";
+        with zipfile.ZipFile(zip_path) as package:
+            self.assertEqual(json.loads(package.read("pet.json"))["id"], "lumen");
+            self.assertEqual(package.read("spritesheet.webp")[:4], b"RIFF");
+        self.assertEqual(sorted(p.name for p in image.parent.glob("*.zip")), ["Lumen-OpenPets.zip"]);
 
     def test_out_of_range(self):
         with self.assertRaises(IndexError):
@@ -56,7 +71,7 @@ class ConfigTests(unittest.TestCase):
     def test_roundtrip(self):
         with tempfile.TemporaryDirectory() as root:
             dest = Path(root) / "prefs.toml";
-            cfg = Config(model_enabled=True, endpoint='http://127.0.0.1:11434/v1/chat/completions', model='llama3.2', voice_enabled=True, voice_language='es', roaming=True, scale=1.5);
+            cfg = Config(model_enabled=True, endpoint='http://127.0.0.1:11434/v1/chat/completions', model='llama3.2', voice_enabled=True, voice_language='es-uy', voice_engine='phonem', roaming=True, scale=1.5);
             save(cfg, dest);
             self.assertEqual(load(dest), cfg);
             self.assertEqual(dest.stat().st_mode & 0o777, 0o600);
@@ -99,6 +114,49 @@ class BackendTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             chat("http://user:secret@127.0.0.1/v1/chat/completions", "llama3.2", []);
 
+
+
+class VoiceTests(unittest.TestCase):
+    def test_phonem_profile_is_default(self):
+        self.assertEqual(Config().voice_engine, "phonem");
+        self.assertEqual(Config().voice_language, "es-uy");
+
+    def test_synthesis_reuses_phonem_profile_and_wav(self):
+        from unittest.mock import Mock;
+        calls = [];
+        def fake_run(args, **kwargs):
+            calls.append((args, kwargs));
+            return Mock(returncode=0, stdout=b"la kasa roxa", stderr=b"");
+        with patch("sumlux.voice.executable", side_effect=lambda name: "/mock/" + name), patch("sumlux.voice.subprocess.run", side_effect=fake_run):
+            self.assertTrue(play("La casa roja", "es-uy"));
+        self.assertEqual(calls[0][0], ["/mock/phonem", "-t", "La casa roja", "-l", "es-uy"]);
+        self.assertEqual(calls[1][0][:3], ["/mock/pronounce", "-l", "es-uy"]);
+        self.assertEqual(calls[1][1]["input"], b"la kasa roxa");
+        self.assertEqual(calls[1][0][3], "--wav");
+        self.assertEqual(calls[2][0][0:5], ["/mock/ffplay", "-nodisp", "-autoexit", "-loglevel", "error"]);
+        self.assertTrue(calls[1][0][-1].endswith("/lumen.wav"));
+        self.assertEqual(calls[1][0][-1], calls[2][0][-1]);
+
+    def test_missing_phonem_does_not_fallback_to_espeak(self):
+        with patch("sumlux.voice.executable", side_effect=lambda name: None if name == "pronounce" else "/mock/" + name):
+            self.assertFalse(voice_ready("phonem"));
+            self.assertFalse(speak("hola", "es-uy", "phonem"));
+
+    def test_espeak_explicit_engine_collapses_project_profile(self):
+        from unittest.mock import Mock;
+        calls = [];
+        def fake_run(args, **kwargs):
+            calls.append(args);
+            return Mock(returncode=0, stdout=b"", stderr=b"");
+        with patch("sumlux.voice.executable", side_effect=lambda name: "/mock/" + name if name == "espeak-ng" else None), patch("sumlux.voice.subprocess.run", side_effect=fake_run):
+            self.assertTrue(play("hola", "es-uy", "espeak"));
+        self.assertEqual(calls[0], ["/mock/espeak-ng", "-v", "es", "--", "hola"]);
+
+    def test_missing_audio_does_not_run_commands(self):
+        with patch("sumlux.voice.executable", return_value=None), patch("sumlux.voice.subprocess.run") as run:
+            with self.assertRaises(RuntimeError):
+                play("hola", "es-uy", "phonem");
+            run.assert_not_called();
 
 if __name__ == "__main__":
     unittest.main();

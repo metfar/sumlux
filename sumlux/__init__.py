@@ -23,6 +23,6 @@
 #import warnings;
 #warnings.filterwarnings("ignore", category=UserWarning);
 
-"""Σlux: Lumen Pet Delicate en el escritorio."""
+"""Σlux: Lumen, compañera de escritorio."""
 
-__version__ = "0.1.0a1";
+__version__ = "0.1.0a3";

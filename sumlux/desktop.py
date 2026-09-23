@@ -31,7 +31,7 @@ import random;
 import sys;
 from PySide6.QtCore import QRect, Qt, QTimer;
 from PySide6.QtGui import QPainter, QPixmap, QRegion;
-from PySide6.QtWidgets import QApplication, QDialog, QDialogButtonBox, QFormLayout, QCheckBox, QDoubleSpinBox, QLineEdit, QMenu, QWidget;
+from PySide6.QtWidgets import QApplication, QDialog, QDialogButtonBox, QFormLayout, QCheckBox, QDoubleSpinBox, QLineEdit, QComboBox, QMenu, QPushButton, QMessageBox, QWidget;
 from . import __version__;
 from .config import load, save;
 from .sprites import CELL_WIDTH, CELL_HEIGHT, STATES, atlas_path, frame, pet_metadata;
@@ -47,9 +47,14 @@ class Preferences(QDialog):
         self.model_on.setChecked(config.model_enabled);
         self.endpoint = QLineEdit(config.endpoint);
         self.model = QLineEdit(config.model);
-        self.voice = QCheckBox("Leer respuestas en voz alta (espeak-ng / Speech Dispatcher)");
+        self.voice = QCheckBox("Leer las respuestas en voz alta");
         self.voice.setChecked(config.voice_enabled);
+        self.engine = QComboBox();
+        self.engine.addItem("phonem + pronounce (Piper, voz configurada)", "phonem");
+        self.engine.addItem("eSpeak-NG / Speech Dispatcher (alternativa)", "espeak");
+        self.engine.setCurrentIndex(max(0, self.engine.findData(config.voice_engine)));
         self.language = QLineEdit(config.voice_language);
+        self.language.setPlaceholderText("es-uy");
         self.roaming = QCheckBox("Pasear por el escritorio");
         self.roaming.setChecked(config.roaming);
         self.scale = QDoubleSpinBox();
@@ -61,7 +66,11 @@ class Preferences(QDialog):
         layout.addRow("Endpoint HTTP(S):", self.endpoint);
         layout.addRow("Modelo:", self.model);
         layout.addRow(self.voice);
-        layout.addRow("Idioma de voz:", self.language);
+        layout.addRow("Motor de voz:", self.engine);
+        layout.addRow("Perfil phonem (-l):", self.language);
+        preview = QPushButton("Probar voz");
+        preview.clicked.connect(lambda: parent.preview_voice(self.language.text().strip() or "es-uy", self.engine.currentData()));
+        layout.addRow(preview);
         layout.addRow(self.roaming);
         layout.addRow("Escala del avatar:", self.scale);
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel);
@@ -74,7 +83,8 @@ class Preferences(QDialog):
         config.endpoint = self.endpoint.text().strip();
         config.model = self.model.text().strip();
         config.voice_enabled = self.voice.isChecked();
-        config.voice_language = self.language.text().strip() or "es";
+        config.voice_language = self.language.text().strip() or "es-uy";
+        config.voice_engine = self.engine.currentData();
         config.roaming = self.roaming.isChecked();
         config.scale = self.scale.value();
 
@@ -87,7 +97,7 @@ class LumenDesktop(QWidget):
         self.chat_window = None;
         self.atlas = QPixmap(str(atlas_path()));
         if self.atlas.isNull() or self.atlas.width() != CELL_WIDTH * 8 or self.atlas.height() != CELL_HEIGHT * 9:
-            raise RuntimeError("Atlas Pet Delicate incorrecto: esperaba 1536×1872");
+            raise RuntimeError("Atlas del avatar público incorrecto: esperaba 1536×1872");
         self.setWindowTitle(pet_metadata()["displayName"]);
         self.setWindowFlags(Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint);
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground);
@@ -195,6 +205,12 @@ class LumenDesktop(QWidget):
         elif choice == quit_action:
             QApplication.instance().quit();
 
+    def preview_voice(self, language, engine):
+        from .voice import speak;
+        sample = "Hola, William. Soy Lumen. Ahora puedo hablar con nuestra voz configurada.";
+        if not speak(sample, language, engine):
+            QMessageBox.warning(self, "Voz no disponible", "No encontré phonem, pronounce y ffplay (o el motor elegido). Revisá que estén instalados y ejecutables.");
+
     def open_chat(self):
         from .chat_window import ChatWindow;
         if self.chat_window is None:
@@ -214,7 +230,7 @@ class LumenDesktop(QWidget):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Σlux · Lumen Pet Delicate Linux desktop companion");
+    parser = argparse.ArgumentParser(description="Σlux · Lumen Linux desktop companion");
     parser.add_argument("--version", action="version", version=f"sumlux {__version__}");
     args = parser.parse_args();
     _ = args;

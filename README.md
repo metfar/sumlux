@@ -1,13 +1,15 @@
-# Σlux 0.1.0a1 — Lumen
+# Σlux 0.1.0a3 — Lumen (avatar público)
 
-First standalone functional version for Linux/X11, initially designed for XFCE. It includes the Lumen avatar, which is compatible with OpenPets from the Lumen package. The original ZIP file is preserved in sumlux/assets/. Σlux renders the atlas internally; it does not require installing or running OpenPets.
+First standalone functional version for Linux/X11, initially designed for XFCE. It includes the Lumen avatar, which is compatible with OpenPets from the Lumen package. The public green OpenPets ZIP is preserved in sumlux/assets/. No private variant is shipped. Σlux renders the atlas internally; it does not require installing or running OpenPets.
 
 ## Running
+
+This release corrects avatar selection in the previous source archive: a stale build/lib directory contained a different avatar while the source assets had been replaced. This release ships a single public avatar, removes stale build artifacts, and increments the version so an installer can replace an older installation.
 
 On Linux with Python 3.11+ and an X11 graphical environment (XFCE recommended):
 
 ```bash
-cd sumLux-0.1.0a1
+cd sumlux-0.1.0a2
 bash scripts/install.sh
 ~/.local/bin/sumlux
 ```
@@ -31,13 +33,20 @@ Sent messages and received responses are stored in an SQLite database at `~/.loc
 
 Preferences are stored in `~/.config/sum/lux.toml` (or under `$XDG_CONFIG_HOME`) with restricted user permissions.
 
-## Voice
+## Voz — integración con phonem 1.6.0 / pronounce 0.6.1
 
-In Preferences, you can enable response playback using `espeak-ng`, `espeak`, or `spd-say` (if installed); this feature is disabled by default. **Voice input, dictation, and lip-syncing are not yet implemented**. This generic local voice is not a custom Lumen voice.
+El motor preferido es el proyecto independiente `phonem` + `pronounce` ya instalado por el usuario. No se distribuye ni reinstala su toolkit, modelos Piper ni configuraciones personales dentro de Σlux. De manera predeterminada, el perfil de voz es `es-uy`; `es` también es un alias de `es-uy` en phonem. La voz y su velocidad se consultan a la configuración existente de phonem, **no se duplican ni sobrescriben** en Σlux.
+
+El flujo lógico es `phonem -t "texto" -l es-uy | pronounce -l es-uy`, con salida WAV a un temporal y `ffplay` para reproducir sin depender de que stdout de una ventana gráfica sea una TTY. Los procesos se ejecutan como argumentos, no mediante un shell. La reproducción corre en un hilo para no congelar la ventana. La opción eSpeak sigue disponible explícitamente, **no hay fallback silencioso** a una voz distinta cuando falla phonem.
+
+Verificar desde la terminal: `phonem -t "La casa roja" -l es-uy | pronounce -l es-uy` y `pronounce --list-models es`. Si el lanzador gráfico no hereda `~/.local/bin` en PATH, Σlux busca los ejecutables ahí también, o en `PHONEM_BIN_DIR` si está definida. La síntesis informa errores en stderr de Σlux; en una futura versión se mostrarán dentro de la ventana.
+
+La voz está desactivada hasta que se marque «Leer las respuestas en voz alta». Preferencias ofrece motor, perfil y botón de prueba. **Reconocimiento de micrófono, lip-syncing y ajustes de voz finos en UI todavía no están implementados**. El usuario administra esos ajustes desde su proyecto phonem.
+
 
 ## Status and Next Steps
 
-Implemented in this alpha: animated avatar, manual gestures, chat interface, compatible model protocol, SQLite history, optional local TTS, preferences, and a Linux launcher. Pending: actual visual testing on XFCE, formal integration into `sum.sh`/`sumBuild`, custom voice selection and management, STT/microphone support, memory with summarization/retrieval, desktop capabilities with explicit permissions, and Windows/Android packages.
+Implemented in this alpha: animated avatar, manual gestures, chat interface, compatible model protocol, SQLite history, optional local TTS, preferences, and a Linux launcher. Pending: actual visual testing on XFCE, formal integration into `sum.sh`/`sumBuild`, an in-app phonem voice inventory, STT/microphone support, memory with summarization/retrieval, desktop capabilities with explicit permissions, and Windows/Android packages.
 
 This release is a **new and separate** package; it does not alter any previous SUM releases. Automatic integration with `sumGUI` or `sumTerminal` is not guaranteed without inspecting the current SUM snapshot. ## Testing
 

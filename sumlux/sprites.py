@@ -23,7 +23,7 @@
 #import warnings;
 #warnings.filterwarnings("ignore", category=UserWarning);
 
-"""Interpretación del atlas 8×9 de Lumen Pet Delicate (192×208 px)."""
+"""Interpretación del atlas 8×9 de Lumen, avatar público (192×208 px)."""
 
 from dataclasses import dataclass;
 import json;
@@ -68,6 +68,6 @@ def validate_pet_zip(path):
         if entries != {"pet.json", "spritesheet.webp"}:
             raise ValueError(f"Paquete OpenPets inesperado: {sorted(entries)}");
         metadata = json.loads(package.read("pet.json"));
-        if metadata.get("id") != "lumen-pet-delicate" or metadata.get("spritesheetPath") != "spritesheet.webp":
-            raise ValueError("El paquete no es Lumen Pet Delicate");
+        if metadata.get("id") != pet_metadata()["id"] or metadata.get("spritesheetPath") != "spritesheet.webp":
+            raise ValueError("El paquete no corresponde al avatar público configurado");
         return metadata;

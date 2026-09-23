@@ -8,7 +8,7 @@ ICON="$HOME/.local/share/icons/hicolor/128x128/apps/sumlux.png"
 mkdir -p "$(dirname "$VENV")" "$BIN" "$APP" "$(dirname "$ICON")"
 python3 -m venv "$VENV"
 "$VENV/bin/python" -m pip install --upgrade pip
-"$VENV/bin/python" -m pip install "$ROOT"
+"$VENV/bin/python" -m pip install --force-reinstall --no-cache-dir "$ROOT"
 ln -sfn "$VENV/bin/sumlux" "$BIN/sumlux"
 cp "$ROOT/sumlux/assets/sumlux.png" "$ICON"
 cat > "$APP/sumlux.desktop" <<DESKTOP
