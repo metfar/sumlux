@@ -38,7 +38,7 @@ from sumlux.backend import chat;
 from sumlux.config import Config, load, save;
 from sumlux.sprites import STATES, atlas_path, frame, pet_metadata, validate_pet_zip;
 from sumlux.storage import ConversationStore;
-from sumlux.voice import play, speak, voice_ready;
+from sumlux.voice import play, speak, voice_ready, speech_text;
 
 
 class AssetTests(unittest.TestCase):
@@ -71,10 +71,20 @@ class ConfigTests(unittest.TestCase):
     def test_roundtrip(self):
         with tempfile.TemporaryDirectory() as root:
             dest = Path(root) / "prefs.toml";
-            cfg = Config(model_enabled=True, endpoint='http://127.0.0.1:11434/v1/chat/completions', model='llama3.2', voice_enabled=True, voice_language='es-uy', voice_engine='phonem', roaming=True, scale=1.5);
+            cfg = Config(model_enabled=True, endpoint='http://127.0.0.1:11434/v1/chat/completions', model='llama3.2', voice_enabled=True, voice_language='es-uy', voice_engine='phonem', roaming=True, scale=1.5, user_name="Sebastián", spoken_name="", name_onboarding_complete=True);
             save(cfg, dest);
             self.assertEqual(load(dest), cfg);
             self.assertEqual(dest.stat().st_mode & 0o777, 0o600);
+
+
+    def test_old_config_defaults_for_upgrade(self):
+        with tempfile.TemporaryDirectory() as root:
+            dest = Path(root) / "old.toml";
+            dest.write_text('voice_engine = "phonem"\nvoice_language = "es-uy"\n', encoding="utf-8");
+            cfg = load(dest);
+            self.assertEqual(cfg.user_name, "");
+            self.assertEqual(cfg.spoken_name, "");
+            self.assertFalse(cfg.name_onboarding_complete);
 
 
 class StorageTests(unittest.TestCase):
@@ -110,6 +120,21 @@ class BackendTests(unittest.TestCase):
         with patch("sumlux.backend.urlopen", fake_urlopen):
             self.assertEqual(chat("http://127.0.0.1:11434/v1/chat/completions", "llama3.2", [{"role": "user", "content": "Hola"}]), "Salut!");
 
+    def test_name_only_when_configured(self):
+        from unittest.mock import Mock;
+        observed = [];
+        def fake_urlopen(request, timeout):
+            observed.append(json.loads(request.data));
+            stream = Mock();
+            stream.__enter__ = Mock(return_value=stream);
+            stream.__exit__ = Mock(return_value=None);
+            stream.read.return_value = json.dumps({"choices": [{"message": {"content": "Hola, Seba"}}]}).encode();
+            return stream;
+        with patch("sumlux.backend.urlopen", fake_urlopen):
+            self.assertEqual(chat("http://127.0.0.1:11434/v1/chat/completions", "llama3.2", [], user_name="Seba"), "Hola, Seba");
+        self.assertIn("Seba", observed[0]["messages"][0]["content"]);
+        self.assertNotIn("William", observed[0]["messages"][0]["content"]);
+
     def test_rejects_embedded_credentials(self):
         with self.assertRaises(ValueError):
             chat("http://user:secret@127.0.0.1/v1/chat/completions", "llama3.2", []);
@@ -120,6 +145,12 @@ class VoiceTests(unittest.TestCase):
     def test_phonem_profile_is_default(self):
         self.assertEqual(Config().voice_engine, "phonem");
         self.assertEqual(Config().voice_language, "es-uy");
+
+    def test_voice_only_name_pronunciation(self):
+        self.assertEqual(speech_text("Hola, William. ¿Williamson?", "William", "Uiliam"), "Hola, Uiliam. ¿Williamson?");
+        self.assertEqual(speech_text("Hola, Sebastián.", "Sebastián", ""), "Hola, Sebastián.");
+        self.assertEqual(speech_text("hola, WILLIAM", "William", "Uiliam"), "hola, Uiliam");
+        self.assertEqual(speech_text("Hola, William", "", "Uiliam"), "Hola, William");
 
     def test_synthesis_reuses_phonem_profile_and_wav(self):
         from unittest.mock import Mock;

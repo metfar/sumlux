@@ -33,13 +33,17 @@ from urllib.request import Request, urlopen;
 SYSTEM_PROMPT = "Eres Lumen, compañera de escritorio del ecosistema SUM. Responde con claridad, calidez, rigor técnico y honestidad. No afirmes recordar nada fuera de los mensajes que recibes. Si una función no está implementada, dilo.";
 
 
-def chat(endpoint, model, history, timeout=60):
+def chat(endpoint, model, history, timeout=60, user_name=""):
     parsed = urlparse(endpoint);
     if parsed.scheme not in ("http", "https") or not parsed.netloc or parsed.username or parsed.password:
         raise ValueError("Endpoint HTTP(S) inválido");
     if not model.strip():
         raise ValueError("Falta seleccionar un modelo");
-    payload = json.dumps({"model": model, "messages": [{"role": "system", "content": SYSTEM_PROMPT}, *history], "stream": False}).encode("utf-8");
+    system_prompt = SYSTEM_PROMPT;
+    if user_name.strip():
+        safe_name = json.dumps(user_name.strip(), ensure_ascii=False);
+        system_prompt += f" La persona que conversa contigo prefiere que la llames {safe_name}. Usá ese nombre si necesitás dirigirte a ella; no deduzcas otros nombres a partir del historial.";
+    payload = json.dumps({"model": model, "messages": [{"role": "system", "content": system_prompt}, *history], "stream": False}).encode("utf-8");
     headers = {"Content-Type": "application/json"};
     api_key = os.environ.get("SUMLUX_API_KEY", "");
     if api_key:

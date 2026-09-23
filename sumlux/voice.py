@@ -30,6 +30,7 @@ La síntesis se ejecuta fuera del hilo gráfico, sin shell=True.
 """;
 
 import os;
+import re;
 from pathlib import Path;
 import shutil;
 import subprocess;
@@ -38,6 +39,16 @@ import tempfile;
 from threading import Lock, Thread;
 
 _PLAYBACK_LOCK = Lock();
+
+
+def speech_text(text, user_name="", spoken_name=""):
+    """Replace a preferred name for TTS only; never change the visible chat/history.""";
+    name = user_name.strip();
+    reading = spoken_name.strip();
+    if not name or not reading or name == reading:
+        return text;
+    return re.sub(r"(?<!\w)" + re.escape(name) + r"(?!\w)", lambda _match: reading, text, flags=re.IGNORECASE);
+
 
 
 def executable(name):

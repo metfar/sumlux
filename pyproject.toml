@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sumlux"
-version = "0.1.0a3"
+version = "0.1.0a4"
 description = "Lumen Pet, compañera de escritorio para Linux en SUM"
 readme = "README.md"
 requires-python = ">=3.11"

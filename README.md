@@ -1,4 +1,4 @@
-# Σlux 0.1.0a3 — Lumen (avatar público)
+# Σlux 0.1.0a4 — Lumen (avatar público)
 
 First standalone functional version for Linux/X11, initially designed for XFCE. It includes the Lumen avatar, which is compatible with OpenPets from the Lumen package. The public green OpenPets ZIP is preserved in sumlux/assets/. No private variant is shipped. Σlux renders the atlas internally; it does not require installing or running OpenPets.
 
@@ -9,7 +9,7 @@ This release corrects avatar selection in the previous source archive: a stale b
 On Linux with Python 3.11+ and an X11 graphical environment (XFCE recommended):
 
 ```bash
-cd sumlux-0.1.0a2
+cd sumlux-0.1.0a4
 bash scripts/install.sh
 ~/.local/bin/sumlux
 ```
@@ -28,6 +28,12 @@ Manual mode without installing the launcher: `python3 -m venv .venv && .venv/bin
 ## Conversation and Memory
 
 Optional dialogue connects to an **OpenAI Chat Completions-compatible** server. **Local Ollama** is suggested by default, though it is not automatically enabled or installed. For Ollama: download your chosen model and run the service—e.g., `ollama pull llama3.2`. Open Right-click → Preferences, activate the model, and select the URL/model. Defaults: `http://127.0.0.1:11434/v1/chat/completions`, model `llama3.2`. A different compatible server can be used via a configurable URL. For a remote server, **sent messages are directed to that server**. If required, the API token is read from the `SUMLUX_API_KEY` environment variable; it is never written to the configuration file.
+
+On the first GUI launch, including after upgrading from a release without a name preference, Σlux asks **“¿Cómo querés que te llame?”**. The answer is optional; the prompt appears only once, even if skipped. It can be changed in Preferences at any time. The configured preferred name is included in the model system message, but is not sent anywhere unless the user activates and contacts a model endpoint. The public build has no default personal name.
+
+Enter in the chat composer sends a message; the **Enviar** button is the dialog default. "Modelo y voz…" and "Borrar historial…" are not default buttons. The chat input receives focus on opening the chat.
+
+Preferences additionally allows an optional **spoken pronunciation** for the user name (e.g. displayed `William`, spoken `Uiliam`); only text sent to TTS is changed. With preferred name `Seba` or `Sebastián`, leave the spoken form empty if phonem already pronounces it well. Older saved messages are not rewritten or deleted.
 
 Sent messages and received responses are stored in an SQLite database at `~/.local/share/sum/lux/lumen.sqlite3` (or under `$XDG_DATA_HOME`); up to the **24 most recent messages** are sent to the model to maintain contextual continuity. There is no semantic summarization or automatic access to ChatGPT memories or past conversations. A **Clear history…** button allows for the deletion of local messages from within the app; user-created backup files remain unaffected.
 

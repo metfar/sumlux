@@ -28,21 +28,22 @@
 from PySide6.QtCore import Qt, QThread, Signal;
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox, QTextBrowser, QVBoxLayout;
 from .backend import chat;
-from .voice import speak;
+from .voice import speak, speech_text;
 
 
 class ChatWorker(QThread):
     result = Signal(str, str);
 
-    def __init__(self, endpoint, model, messages, parent=None):
+    def __init__(self, endpoint, model, messages, user_name="", parent=None):
         super().__init__(parent);
         self.endpoint = endpoint;
         self.model = model;
         self.messages = messages;
+        self.user_name = user_name;
 
     def run(self):
         try:
-            result = chat(self.endpoint, self.model, self.messages);
+            result = chat(self.endpoint, self.model, self.messages, user_name=self.user_name);
             self.result.emit(result, "");
         except Exception as error:
             self.result.emit("", str(error));
@@ -70,18 +71,23 @@ class ChatWindow(QDialog):
         row.addWidget(self.line);
         self.send_button = QPushButton("Enviar");
         self.send_button.clicked.connect(self.send);
+        self.send_button.setAutoDefault(True);
+        self.send_button.setDefault(True);
         row.addWidget(self.send_button);
         layout.addLayout(row);
         bottom = QHBoxLayout();
         preferences = QPushButton("Modelo y voz…");
         preferences.clicked.connect(self.avatar.open_preferences);
+        preferences.setAutoDefault(False);
         bottom.addWidget(preferences);
         delete = QPushButton("Borrar historial…");
         delete.clicked.connect(self.clear_history);
+        delete.setAutoDefault(False);
         bottom.addWidget(delete);
         layout.addLayout(bottom);
         self.refresh_connection_status();
         self.show_history();
+        self.line.setFocus();
 
     def refresh_connection_status(self):
         if self.config.model_enabled:
@@ -111,7 +117,7 @@ class ChatWindow(QDialog):
         self.line.setEnabled(False);
         self.send_button.setEnabled(False);
         self.status.setText("Lumen está pensando…");
-        worker = ChatWorker(self.config.endpoint, self.config.model, self.store.recent(), self);
+        worker = ChatWorker(self.config.endpoint, self.config.model, self.store.recent(), self.config.user_name, self);
         self._workers.append(worker);
         worker.result.connect(self._reply);
         worker.finished.connect(lambda: self._workers.remove(worker));
@@ -126,7 +132,7 @@ class ChatWindow(QDialog):
             self.add_line("Lumen", answer);
             self.status.setText(f"Modelo: {self.config.model}");
             self.avatar._animate("wave");
-            if self.config.voice_enabled and not speak(answer, self.config.voice_language, self.config.voice_engine):
+            if self.config.voice_enabled and not speak(speech_text(answer, self.config.user_name, self.config.spoken_name), self.config.voice_language, self.config.voice_engine):
                 self.status.setText("Motor de voz no disponible: revisá phonem, pronounce y ffplay, o cambiá motor en Preferencias.");
         self.line.setEnabled(True);
         self.send_button.setEnabled(True);

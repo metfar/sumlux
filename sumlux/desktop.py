@@ -31,7 +31,7 @@ import random;
 import sys;
 from PySide6.QtCore import QRect, Qt, QTimer;
 from PySide6.QtGui import QPainter, QPixmap, QRegion;
-from PySide6.QtWidgets import QApplication, QDialog, QDialogButtonBox, QFormLayout, QCheckBox, QDoubleSpinBox, QLineEdit, QComboBox, QMenu, QPushButton, QMessageBox, QWidget;
+from PySide6.QtWidgets import QApplication, QDialog, QDialogButtonBox, QFormLayout, QCheckBox, QDoubleSpinBox, QLineEdit, QComboBox, QInputDialog, QMenu, QPushButton, QMessageBox, QWidget;
 from . import __version__;
 from .config import load, save;
 from .sprites import CELL_WIDTH, CELL_HEIGHT, STATES, atlas_path, frame, pet_metadata;
@@ -47,6 +47,10 @@ class Preferences(QDialog):
         self.model_on.setChecked(config.model_enabled);
         self.endpoint = QLineEdit(config.endpoint);
         self.model = QLineEdit(config.model);
+        self.user_name = QLineEdit(config.user_name);
+        self.user_name.setPlaceholderText("Seba, Sebastián, o como prefieras");
+        self.spoken_name = QLineEdit(config.spoken_name);
+        self.spoken_name.setPlaceholderText("Opcional; p. ej., Uiliam para William");
         self.voice = QCheckBox("Leer las respuestas en voz alta");
         self.voice.setChecked(config.voice_enabled);
         self.engine = QComboBox();
@@ -62,6 +66,8 @@ class Preferences(QDialog):
         self.scale.setSingleStep(0.10);
         self.scale.setValue(config.scale);
         layout = QFormLayout(self);
+        layout.addRow("Cómo querés que te llame:", self.user_name);
+        layout.addRow("Cómo pronunciar ese nombre:", self.spoken_name);
         layout.addRow(self.model_on);
         layout.addRow("Endpoint HTTP(S):", self.endpoint);
         layout.addRow("Modelo:", self.model);
@@ -69,7 +75,7 @@ class Preferences(QDialog):
         layout.addRow("Motor de voz:", self.engine);
         layout.addRow("Perfil phonem (-l):", self.language);
         preview = QPushButton("Probar voz");
-        preview.clicked.connect(lambda: parent.preview_voice(self.language.text().strip() or "es-uy", self.engine.currentData()));
+        preview.clicked.connect(lambda: parent.preview_voice(self.language.text().strip() or "es-uy", self.engine.currentData(), self.user_name.text().strip(), self.spoken_name.text().strip()));
         layout.addRow(preview);
         layout.addRow(self.roaming);
         layout.addRow("Escala del avatar:", self.scale);
@@ -79,6 +85,9 @@ class Preferences(QDialog):
         layout.addRow(buttons);
 
     def apply_to(self, config):
+        config.user_name = self.user_name.text().strip();
+        config.spoken_name = self.spoken_name.text().strip();
+        config.name_onboarding_complete = True;
         config.model_enabled = self.model_on.isChecked();
         config.endpoint = self.endpoint.text().strip();
         config.model = self.model.text().strip();
@@ -205,11 +214,29 @@ class LumenDesktop(QWidget):
         elif choice == quit_action:
             QApplication.instance().quit();
 
-    def preview_voice(self, language, engine):
+    def preview_voice(self, language, engine, user_name="", spoken_name=""):
         from .voice import speak;
-        sample = "Hola, William. Soy Lumen. Ahora puedo hablar con nuestra voz configurada.";
+        from .voice import speech_text;
+        greeting = f"Hola, {user_name}." if user_name else "Hola.";
+        sample = speech_text(f"{greeting} Soy Lumen. Ahora puedo hablar con nuestra voz configurada.", user_name, spoken_name);
         if not speak(sample, language, engine):
             QMessageBox.warning(self, "Voz no disponible", "No encontré phonem, pronounce y ffplay (o el motor elegido). Revisá que estén instalados y ejecutables.");
+
+    def ask_user_name(self):
+        """One-time GUI onboarding, including upgrades from configs without name fields.""";
+        if self.config.name_onboarding_complete:
+            return;
+        name, accepted = QInputDialog.getText(
+            self,
+            "Σlux · Conocernos",
+            "¡Hola! ¿Cómo querés que te llame?\nPodés cambiarlo luego en Preferencias.",
+            QLineEdit.EchoMode.Normal,
+            self.config.user_name,
+        );
+        if accepted:
+            self.config.user_name = name.strip();
+        self.config.name_onboarding_complete = True;
+        save(self.config);
 
     def open_chat(self):
         from .chat_window import ChatWindow;
@@ -218,6 +245,7 @@ class LumenDesktop(QWidget):
         self.chat_window.show();
         self.chat_window.raise_();
         self.chat_window.activateWindow();
+        self.chat_window.line.setFocus();
 
     def open_preferences(self):
         dialog = Preferences(self.config, self);
@@ -249,6 +277,7 @@ def main():
         store.close();
     app.aboutToQuit.connect(shutdown);
     avatar.show();
+    QTimer.singleShot(0, avatar.ask_user_name);
     return app.exec();
 
 
