@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sumlux"
+version = "0.1.0a1"
+description = "Lumen Pet, compañera de escritorio para Linux en SUM"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "GPL-2.0-or-later"
+authors = [{name = "William Martínez Bas"}]
+dependencies = ["PySide6>=6.5,<7"]
+
+[project.scripts]
+sumlux = "sumlux.desktop:main"
+
+[tool.setuptools.packages.find]
+include = ["sumlux*"]
+
+[tool.setuptools.package-data]
+sumlux = ["assets/*.png", "assets/*.zip", "assets/*.json"]

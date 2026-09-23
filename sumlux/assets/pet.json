@@ -1,0 +1,26 @@
+{
+  "id": "lumen",
+  "displayName": "Lumen",
+  "description": "Una presencia humana-vulcana de  luminosidad interior",
+  "spritesheetPath": "spritesheet.webp",
+  "category": "companions",
+  "subcategory": "luminous",
+  "sourceUrl": "local://lumen",
+  "animation": {
+    "columns": 8,
+    "rows": 9,
+    "cellWidth": 192,
+    "cellHeight": 208,
+    "states": [
+      "idle",
+      "running-right",
+      "running-left",
+      "waving",
+      "jumping",
+      "failed",
+      "waiting",
+      "running",
+      "review"
+    ]
+  }
+}
