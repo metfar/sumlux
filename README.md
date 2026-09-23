@@ -1,4 +1,4 @@
-# Σlux 0.1.0a4 — Lumen (avatar público)
+# Σlux 0.1.0a5 — Lumen (avatar público)
 
 First standalone functional version for Linux/X11, initially designed for XFCE. It includes the Lumen avatar, which is compatible with OpenPets from the Lumen package. The public green OpenPets ZIP is preserved in sumlux/assets/. No private variant is shipped. Σlux renders the atlas internally; it does not require installing or running OpenPets.
 
@@ -9,7 +9,7 @@ This release corrects avatar selection in the previous source archive: a stale b
 On Linux with Python 3.11+ and an X11 graphical environment (XFCE recommended):
 
 ```bash
-cd sumlux-0.1.0a4
+cd sumlux-0.1.0a5
 bash scripts/install.sh
 ~/.local/bin/sumlux
 ```
@@ -70,3 +70,11 @@ On a system with X11: launch `sumlux`, drag the window, open the menu via right-
 License: GNU GPL v2 or later (see `COPYING`).
 
 <p align=center><b>- oOo -</b></p>
+
+## 0.1.0a5 — Truth, speech controls, Markdown
+
+- El botón «■ Detener voz» y el menú contextual detienen tanto la síntesis como la reproducción de esta instancia de Σlux. Una nueva respuesta detiene la voz anterior; enviar un mensaje también la detiene.
+- El texto en pantalla conserva y presenta Markdown; el motor de voz recibe contenido limpio. Las negritas se marcan con ganancia moderada (1,12× en audio PCM16); no se modifica el volumen ni la velocidad base de phonem. La separación en fragmentos puede afectar levemente a la prosodia. Los bloques cercados de código se omiten en voz.
+- **Los comandos del usuario NO se ejecutan en esta versión**; las solicitudes explícitas detectadas reciben un aviso determinista de falta de herramientas. No se inventan salidas ni tiempos de suminfo. El mensaje de sistema desalienta inventar acciones y se bloquean algunas afirmaciones inequívocas de ejecución no disponible. Esto no garantiza que un modelo jamás fabrique otras afirmaciones: requiere verificaciones y herramientas con procedencia explícita.
+- Speech Dispatcher ya no se ofrece como motor alternativo: el modo eSpeak exige eSpeak-NG o eSpeak directamente para que «Detener voz» pueda interrumpir el proceso dedicado.
+- Véase `COMMAND_POLICY.md` para el contrato de seguridad de futuras capacidades de ejecución; no está implementada en este paquete.

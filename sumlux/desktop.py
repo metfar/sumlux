@@ -195,7 +195,9 @@ class LumenDesktop(QWidget):
         wave = menu.addAction("Saludar");
         jump = menu.addAction("Saltar");
         walk = menu.addAction("Pasear" if not self.config.roaming else "Dejar de pasear");
+        silence = menu.addAction("■ Detener voz");
         menu.addSeparator();
+        silence = menu.addAction("Detener voz");
         options = menu.addAction("Preferencias…");
         menu.addSeparator();
         quit_action = menu.addAction("Salir de Σlux");
@@ -209,6 +211,12 @@ class LumenDesktop(QWidget):
         elif choice == walk:
             self.config.roaming = not self.config.roaming;
             save(self.config);
+        elif choice == silence:
+            from .voice import stop;
+            stop();
+        elif choice == silence:
+            from .voice import stop;
+            stop();
         elif choice == options:
             self.open_preferences();
         elif choice == quit_action:
@@ -272,6 +280,8 @@ def main():
     store = ConversationStore();
     avatar = LumenDesktop(config, store);
     def shutdown():
+        from .voice import stop;
+        stop();
         if avatar.chat_window is not None:
             avatar.chat_window.shutdown();
         store.close();

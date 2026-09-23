@@ -9,7 +9,6 @@ Date: 2026-09-22 (release 0.1.0a4)
 - The private Lumen Delicate artwork is not included in public source packages, wheels, or release archives.
 - The runtime does not automatically load fallback sprites from a pre-existing `build/` directory or an installed private asset bundle.
 
-
 ## Release check
 
 Before publishing a public archive, inspect the **generated artifact** and assert that it contains no private avatar assets, no stale `build/` tree, and no previously built wheels.

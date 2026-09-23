@@ -153,19 +153,26 @@ class VoiceTests(unittest.TestCase):
         self.assertEqual(speech_text("Hola, William", "", "Uiliam"), "Hola, William");
 
     def test_synthesis_reuses_phonem_profile_and_wav(self):
-        from unittest.mock import Mock;
+        import wave;
+        from sumlux.voice import SpeechSession;
         calls = [];
-        def fake_run(args, **kwargs):
-            calls.append((args, kwargs));
-            return Mock(returncode=0, stdout=b"la kasa roxa", stderr=b"");
-        with patch("sumlux.voice.executable", side_effect=lambda name: "/mock/" + name), patch("sumlux.voice.subprocess.run", side_effect=fake_run):
+        def fake_run(_session, args, input_data=None, stdout=None):
+            calls.append((args, input_data));
+            if args[0] == "/mock/phonem":
+                return b"la kasa roxa";
+            if args[0] == "/mock/pronounce":
+                with wave.open(args[-1], "wb") as wav:
+                    wav.setnchannels(1);
+                    wav.setsampwidth(2);
+                    wav.setframerate(22050);
+                    wav.writeframes(b"\x00\x00" * 32);
+            return None;
+        with patch("sumlux.voice.executable", side_effect=lambda name: "/mock/" + name), patch.object(SpeechSession, "run", fake_run):
             self.assertTrue(play("La casa roja", "es-uy"));
         self.assertEqual(calls[0][0], ["/mock/phonem", "-t", "La casa roja", "-l", "es-uy"]);
         self.assertEqual(calls[1][0][:3], ["/mock/pronounce", "-l", "es-uy"]);
-        self.assertEqual(calls[1][1]["input"], b"la kasa roxa");
-        self.assertEqual(calls[1][0][3], "--wav");
-        self.assertEqual(calls[2][0][0:5], ["/mock/ffplay", "-nodisp", "-autoexit", "-loglevel", "error"]);
-        self.assertTrue(calls[1][0][-1].endswith("/lumen.wav"));
+        self.assertEqual(calls[1][1], b"la kasa roxa");
+        self.assertEqual(calls[2][0][:5], ["/mock/ffplay", "-nodisp", "-autoexit", "-loglevel", "error"]);
         self.assertEqual(calls[1][0][-1], calls[2][0][-1]);
 
     def test_missing_phonem_does_not_fallback_to_espeak(self):
@@ -174,20 +181,97 @@ class VoiceTests(unittest.TestCase):
             self.assertFalse(speak("hola", "es-uy", "phonem"));
 
     def test_espeak_explicit_engine_collapses_project_profile(self):
-        from unittest.mock import Mock;
+        from sumlux.voice import SpeechSession;
         calls = [];
-        def fake_run(args, **kwargs):
+        def fake_run(_session, args, input_data=None, stdout=None):
             calls.append(args);
-            return Mock(returncode=0, stdout=b"", stderr=b"");
-        with patch("sumlux.voice.executable", side_effect=lambda name: "/mock/" + name if name == "espeak-ng" else None), patch("sumlux.voice.subprocess.run", side_effect=fake_run):
+            return None;
+        with patch("sumlux.voice.executable", side_effect=lambda name: "/mock/" + name if name == "espeak-ng" else None), patch.object(SpeechSession, "run", fake_run):
             self.assertTrue(play("hola", "es-uy", "espeak"));
         self.assertEqual(calls[0], ["/mock/espeak-ng", "-v", "es", "--", "hola"]);
 
     def test_missing_audio_does_not_run_commands(self):
-        with patch("sumlux.voice.executable", return_value=None), patch("sumlux.voice.subprocess.run") as run:
+        with patch("sumlux.voice.executable", return_value=None), patch("sumlux.voice.subprocess.Popen") as run:
             with self.assertRaises(RuntimeError):
                 play("hola", "es-uy", "phonem");
             run.assert_not_called();
+
+class SpeechFormattingTests(unittest.TestCase):
+    def test_list_bold_and_escaped_markdown(self):
+        from sumlux.speech import speech_plain, speech_segments;
+        source = "**Ecosistema SUM**\n\n* **Versión**: 1.2.5\n* \\*\\*Idiomas\\*\\*: español\n";
+        result = speech_plain(source);
+        self.assertIn("Ecosistema SUM", result);
+        self.assertIn("Versión", result);
+        self.assertIn("Idiomas", result);
+        self.assertNotIn("*", result);
+        self.assertNotIn("\\", result);
+        self.assertTrue(any(bold for text, bold in speech_segments(source) if "Versión" in text));
+
+    def test_gain_uses_pcm16_without_changing_voice_profile(self):
+        import struct;
+        from sumlux.voice import _boost_pcm16;
+        self.assertEqual(struct.unpack("<2h", _boost_pcm16(struct.pack("<2h", 100, -100), 1.12)), (112, -112));
+
+    def test_skip_code_speak_link_caption(self):
+        from sumlux.speech import speech_plain;
+        source = "Mirá [el reporte](https://example.org).\n```bash\nrm -rf ~/datos\n```";
+        result = speech_plain(source);
+        self.assertIn("el reporte", result);
+        self.assertNotIn("https://", result);
+        self.assertNotIn("rm -rf", result);
+
+
+class TrustTests(unittest.TestCase):
+    def test_command_request_never_calls_model_or_host(self):
+        from sumlux.backend import NO_TOOLS_REPLY;
+        with patch("sumlux.backend.urlopen") as mocked:
+            result = chat("http://127.0.0.1:11434/v1/chat/completions", "llama3.2", [{"role": "user", "content": "Podrías ejecutar suminfo para ver la máquina?"}]);
+        self.assertEqual(result, NO_TOOLS_REPLY);
+        mocked.assert_not_called();
+        from sumlux.backend import is_command_request;
+        self.assertTrue(is_command_request("ejecutá ls"));
+        self.assertTrue(is_command_request("corré uname -a"));
+        self.assertFalse(is_command_request("¿Cómo ejecutar ls en Linux?"));
+
+    def test_fake_execution_result_blocked(self):
+        from sumlux.backend import verified_reply;
+        for message in ("Acabo de ejecutar SUMINFO; tardó 10 segundos", "El comando terminó correctamente", "Ya he verificado el hardware"):
+            self.assertIn("No hice esa operación", verified_reply(message));
+
+    def test_no_command_process_interface(self):
+        import sumlux.backend as backend;
+        self.assertFalse(hasattr(backend, "execute"));
+        self.assertFalse(hasattr(backend, "run_command"));
+
+
+class CancellationTests(unittest.TestCase):
+    def test_cancel_running_subprocess(self):
+        import sys;
+        import time;
+        from sumlux.voice import SpeechCancelled, SpeechSession;
+        from threading import Thread;
+        session = SpeechSession();
+        outcomes = [];
+        def run():
+            try:
+                session.run([sys.executable, "-c", "import time;time.sleep(30)"]);
+            except SpeechCancelled:
+                outcomes.append("cancelled");
+        worker = Thread(target=run, daemon=True);
+        worker.start();
+        for _ in range(100):
+            with session.lock:
+                active = session.process;
+            if active is not None:
+                break;
+            time.sleep(0.01);
+        self.assertIsNotNone(active);
+        session.stop();
+        worker.join(4);
+        self.assertFalse(worker.is_alive());
+        self.assertEqual(outcomes, ["cancelled"]);
+
 
 if __name__ == "__main__":
     unittest.main();

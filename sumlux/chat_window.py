@@ -26,9 +26,10 @@
 """Interfaz opcional de conversación; usa memoria sqlite local."""
 
 from PySide6.QtCore import Qt, QThread, Signal;
+from PySide6.QtGui import QTextDocumentFragment;
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox, QTextBrowser, QVBoxLayout;
 from .backend import chat;
-from .voice import speak, speech_text;
+from .voice import speak, speech_text, stop;
 
 
 class ChatWorker(QThread):
@@ -74,6 +75,10 @@ class ChatWindow(QDialog):
         self.send_button.setAutoDefault(True);
         self.send_button.setDefault(True);
         row.addWidget(self.send_button);
+        self.stop_button = QPushButton("■ Detener voz");
+        self.stop_button.setAutoDefault(False);
+        self.stop_button.clicked.connect(self.stop_voice);
+        row.addWidget(self.stop_button);
         layout.addLayout(row);
         bottom = QHBoxLayout();
         preferences = QPushButton("Modelo y voz…");
@@ -101,10 +106,22 @@ class ChatWindow(QDialog):
             self.add_line("Vos" if role == "user" else "Lumen", content);
 
     def add_line(self, title, value):
+        """Markdown de modelo en pantalla, sin tocar SQLite ni texto enviado a TTS.""";
         from html import escape;
-        self.history.append(f"<b>{escape(title)}:</b> {escape(value).replace(chr(10), '<br>')}");
+        cursor = self.history.textCursor();
+        cursor.movePosition(cursor.MoveOperation.End);
+        cursor.insertHtml(f"<p><b>{escape(title)}:</b></p>");
+        cursor.insertFragment(QTextDocumentFragment.fromMarkdown(value));
+        cursor.insertHtml("<p></p>");
+        self.history.setTextCursor(cursor);
+        self.history.ensureCursorVisible();
+
+    def stop_voice(self):
+        stop();
+
 
     def send(self):
+        stop();
         content = self.line.text().strip();
         if not content:
             return;
@@ -145,6 +162,7 @@ class ChatWindow(QDialog):
             self.history.clear();
 
     def shutdown(self):
+        stop();
         for worker in self._workers[:]:
             if worker.isRunning():
                 worker.wait(65000);
